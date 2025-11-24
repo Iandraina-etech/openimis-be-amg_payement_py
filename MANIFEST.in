@@ -1,7 +1,4 @@
 include LICENSE.md
 include README.md
-recursive-include amg_payement *.py
 recursive-include amg_payement/templates *
 recursive-include amg_payement/static *
-recursive-include amg_payement/locale *
-recursive-include amg_payement/migrations *.py
