@@ -26,8 +26,8 @@ setup(
     long_description=README,
     long_description_content_type='text/markdown',
     url='https://openimis.org/',
-    author='Xavier Gillmann',
-    author_email='k.choumene@cloudfacile.com',
+    author='',
+    author_email='',
     install_requires=[
         'django>=4.2,<5.0',
         'django-db-signals',
