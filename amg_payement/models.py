@@ -4,7 +4,7 @@ from django.db import models
 class Payment(models.Model):
     purchaseref = models.CharField(max_length=64, unique=True)
     openimis_ref = models.CharField(max_length=64)
-    beneficiary_id = models.CharField(max_length=64)
+    # beneficiary_id = models.CharField(max_length=64)
     amount = models.IntegerField()
     currency = models.IntegerField(default=174)
     description = models.CharField(max_length=255, blank=True)

@@ -3,7 +3,7 @@
 {% block heading %}Préparation de la transaction{% endblock %}
 {% block content %}
   <div class="stack-12">
-    <div class="status warn">Préparation de la transaction… vous allez être redirigé vers HOLO.</div>
+    <div class="status warn">Préparation de la transaction… cliquez sur le bouton de "Payer" pour etre redirigé vers holo.</div>
     {% if session_error %}
       <div class="status error">Erreur de session HOLO: {{ session_error }}. Vérifiez l'activation du MerchantID, la whitelist IP et les URLs de retour.</div>
     {% endif %}
@@ -17,7 +17,8 @@
     <input type="hidden" name="accepturl" value="{{ acceptUrl }}">
     <input type="hidden" name="declineurl" value="{{ declineUrl }}">
     <input type="hidden" name="cancelurl" value="{{ cancelUrl }}">
-    {% if not auto_submit %}
+    <input type="submit" class="btn btn-primary" name="ok" value="Payer"/>
+    <!-- {% if not auto_submit %} -->
       {% if not sessionid %}
         <div class="status error">Session HOLO absente. Impossible d’envoyer le formulaire. Contactez l’administrateur pour activer le marchand ou vérifier la connexion.</div>
       {% endif %}
@@ -25,12 +26,7 @@
         <div class="status error">HOLO_BASE_URL n’est pas configuré correctement (placeholder). Définissez l’URL HOLO réelle dans les paramètres.</div>
       {% endif %}
       <button class="btn btn-primary" type="submit" {% if not sessionid %}disabled aria-disabled="true"{% endif %}>Payer la cotisation</button>
-    {% endif %}
+    <!-- {% endif %} -->
   </form>
-  {% if auto_submit %}
-  <script>
-    document.getElementById('holoForm').submit();
-  </script>
-  {% endif %}
   </div>
 {% endblock %}

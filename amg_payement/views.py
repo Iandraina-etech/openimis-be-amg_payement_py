@@ -35,16 +35,17 @@ def initier_paiement(request):
     if request.method == "GET":
         amount = request.GET.get("amount")
         openimis_ref = request.GET.get("openimis_ref")
-        beneficiary_id = request.GET.get("beneficiary_id")
-        description = request.GET.get("description") or "Cotisation AMG"
+        # beneficiary_id = request.GET.get("beneficiary_id")
+        # description = request.GET.get("description") or "Cotisation AMG"
         lock_raw = (request.GET.get("lock") or "").lower()
         lock = lock_raw in ("1", "true", "oui", "yes")
-        prefill_present = any([amount, openimis_ref, beneficiary_id])
+        # prefill_present = any([amount, openimis_ref, beneficiary_id])
+        prefill_present = any([amount, openimis_ref])
         ctx = {
             "amount_prefill": amount,
             "openimis_ref_prefill": openimis_ref,
-            "beneficiary_id_prefill": beneficiary_id,
-            "description_prefill": description,
+            # "beneficiary_id_prefill": beneficiary_id,
+            # "description_prefill": description,
             "locked": lock or prefill_present,
         }
         return render(request, "payments/initier_paiement.html", ctx)
@@ -52,10 +53,11 @@ def initier_paiement(request):
     # POST: trigger initiation and render auto-submit form to HOLO
     amount = int(request.POST.get("amount", "0"))
     openimis_ref = request.POST.get("openimis_ref", "")
-    description = request.POST.get("description", "Cotisation AMG")
-    beneficiary_id = request.POST.get("beneficiary_id", "")
+    description = f"Cotisation AMG pour {openimis_ref} montant {amount} "
+    # beneficiary_id = request.POST.get("beneficiary_id", "")
 
-    if amount <= 0 or not openimis_ref or not beneficiary_id:
+    if amount <= 0 or not openimis_ref:
+    # if amount <= 0 or not openimis_ref or not beneficiary_id:
         return HttpResponseBadRequest("Paramètres invalides")
 
     purchaseref = f"AMG-{openimis_ref}-{int(datetime.utcnow().timestamp())}"
@@ -63,7 +65,7 @@ def initier_paiement(request):
     payment = Payment.objects.create(
         purchaseref=purchaseref,
         openimis_ref=openimis_ref,
-        beneficiary_id=beneficiary_id,
+        # beneficiary_id=beneficiary_id,
         amount=amount,
         description=description,
         currency=HOLO_CURRENCY,
@@ -105,7 +107,7 @@ def initier_paiement(request):
         "acceptUrl": ACCEPT_URL,
         "declineUrl": DECLINE_URL,
         "cancelUrl": CANCEL_URL,
-        "auto_submit": (not HOLO_FORCE_MANUAL) and ("holourl" not in HOLO_BASE_URL.lower()) and bool(sessionid),
+        "auto_submit": (not HOLO_FORCE_MANUAL) and bool(sessionid),
         "session_error": session_error,
     }
 
@@ -123,9 +125,10 @@ def api_initiate(request):
     amount = int(data.get("amount", 0))
     openimis_ref = data.get("openimis_ref")
     description = data.get("description", "Cotisation AMG")
-    beneficiary_id = data.get("beneficiary_id")
+    # beneficiary_id = data.get("beneficiary_id")
 
-    if amount <= 0 or not openimis_ref or not beneficiary_id:
+    if amount <= 0 or not openimis_ref :
+    # if amount <= 0 or not openimis_ref or not beneficiary_id:
         return HttpResponseBadRequest("Paramètres invalides")
 
     purchaseref = f"AMG-{openimis_ref}-{int(datetime.utcnow().timestamp())}"
@@ -133,7 +136,7 @@ def api_initiate(request):
     payment = Payment.objects.create(
         purchaseref=purchaseref,
         openimis_ref=openimis_ref,
-        beneficiary_id=beneficiary_id,
+        # beneficiary_id=beneficiary_id,
         amount=amount,
         description=description,
         currency=HOLO_CURRENCY,
@@ -244,7 +247,8 @@ def api_notify(request):
     if normalized in ("success", "accept"):
         payment.status = "paid"
         # Activate rights placeholder: in real openIMIS, trigger activation flow
-        logger.info(f"Activation des droits pour {payment.beneficiary_id} / {payment.purchaseref}")
+        # logger.info(f"Activation des droits pour {payment.beneficiary_id} / {payment.purchaseref}")
+        logger.info(f"Activation des droits pour  {payment.purchaseref}")
     elif normalized in ("decline", "fail"):
         payment.status = "declined"
     elif normalized == "cancel":
@@ -258,10 +262,10 @@ def api_notify(request):
     logger.info(f"Notify traité: {payment.purchaseref} -> {payment.status}")
 
     # Double journalisation (append JSON line)
-    try:
-        with open(BASE_DIR / 'journal_notify.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps(payload) + "\n")
-    except Exception as e:
-        logger.error(f"Journalisation notify échouée: {e}")
+    # try:
+    #     with open(BASE_DIR / 'journal_notify.log', 'a', encoding='utf-8') as f:
+    #         f.write(json.dumps(payload) + "\n")
+    # except Exception as e:
+    #     logger.error(f"Journalisation notify échouée: {e}")
 
     return JsonResponse({"status": "OK"})
