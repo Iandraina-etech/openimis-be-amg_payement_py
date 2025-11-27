@@ -1,0 +1,11 @@
+msgid "payement.sms_on_approved"
+msgstr "The policy of Insuree %(InsureeUuid) has been activated by paying %(Amount) on %(Date) openimis_ref %(PurchaseRef) HOLO ref %(PaymentRef) "
+
+msgid "payement.sms_on_rejected"
+msgstr "The payement for policy of %(InsureeUuid) has failed because of %(RejectionReason)"
+
+msgid "payement.sms_on_cancel"
+msgstr "The payement for the policy of %(InsureeUuid) hase been canceled "
+
+msgid "payement.wrong_amount"
+msgstr "the payement of policy of Insuree %(InsureeUuid) was payed but the amount didn't match so the policy wasn't activated %(RejectionReason)"
