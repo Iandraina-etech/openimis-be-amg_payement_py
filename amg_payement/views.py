@@ -9,6 +9,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .models import Payment
 from .utils import verify_signature, is_ip_whitelisted
+from policy.models import Policy
+from django.contrib.contenttypes.models import ContentType
+from insuree.models import Insuree
+from invoice.models import Invoice
+from policy.values import policy_values
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +40,14 @@ def initier_paiement(request):
     if request.method == "GET":
         amount = request.GET.get("amount")
         openimis_ref = request.GET.get("openimis_ref")
-        # beneficiary_id = request.GET.get("beneficiary_id")
-        # description = request.GET.get("description") or "Cotisation AMG"
+        policy_uuid = request.GET.get("policy_uuid")
         lock_raw = (request.GET.get("lock") or "").lower()
         lock = lock_raw in ("1", "true", "oui", "yes")
-        # prefill_present = any([amount, openimis_ref, beneficiary_id])
         prefill_present = any([amount, openimis_ref])
         ctx = {
             "amount_prefill": amount,
             "openimis_ref_prefill": openimis_ref,
-            # "beneficiary_id_prefill": beneficiary_id,
-            # "description_prefill": description,
+            "policy_uuid_prefill": policy_uuid,
             "locked": lock or prefill_present,
         }
         return render(request, "payments/initier_paiement.html", ctx)
@@ -54,10 +56,9 @@ def initier_paiement(request):
     amount = int(request.POST.get("amount", "0"))
     openimis_ref = request.POST.get("openimis_ref", "")
     description = f"Cotisation AMG pour {openimis_ref} montant {amount} "
-    # beneficiary_id = request.POST.get("beneficiary_id", "")
+    policy_uuid = request.POST.get("policy_uuid", "")
 
-    if amount <= 0 or not openimis_ref:
-    # if amount <= 0 or not openimis_ref or not beneficiary_id:
+    if amount <= 0 or not openimis_ref or not policy_uuid:
         return HttpResponseBadRequest("Paramètres invalides")
 
     purchaseref = f"AMG//--//{openimis_ref}//--//{int(datetime.utcnow().timestamp())}"
@@ -65,7 +66,7 @@ def initier_paiement(request):
     payment = Payment.objects.create(
         purchaseref=purchaseref,
         openimis_ref=openimis_ref,
-        # beneficiary_id=beneficiary_id,
+        policy_uuid=policy_uuid,
         amount=amount,
         description=description,
         currency=HOLO_CURRENCY,
@@ -73,7 +74,6 @@ def initier_paiement(request):
         status="initiating",
     )
 
-    # Call HOLO to get sessionid
     session_error = ""
     try:
         holo_url = f"{HOLO_BASE_URL}{HOLO_ONLINE_ENDPOINT}?merchantid={HOLO_MERCHANT_ID}"
@@ -112,78 +112,6 @@ def initier_paiement(request):
     }
 
     return render(request, "payments/holo_auto_submit.html", form_ctx)
-
-
-# @csrf_exempt
-# @require_http_methods(["POST"])
-# def api_initiate(request):
-#     try:
-#         data = json.loads(request.body.decode("utf-8"))
-#     except Exception:
-#         return HttpResponseBadRequest("JSON invalide")
-
-#     amount = int(data.get("amount", 0))
-#     openimis_ref = data.get("openimis_ref")
-#     description = data.get("description", "Cotisation AMG")
-#     # beneficiary_id = data.get("beneficiary_id")
-
-#     if amount <= 0 or not openimis_ref :
-#     # if amount <= 0 or not openimis_ref or not beneficiary_id:
-#         return HttpResponseBadRequest("Paramètres invalides")
-
-#     purchaseref = f"AMG-{openimis_ref}-{int(datetime.utcnow().timestamp())}"
-
-#     payment = Payment.objects.create(
-#         purchaseref=purchaseref,
-#         openimis_ref=openimis_ref,
-#         # beneficiary_id=beneficiary_id,
-#         amount=amount,
-#         description=description,
-#         currency=HOLO_CURRENCY,
-#         merchantid=HOLO_MERCHANT_ID,
-#         status="initiating",
-#     )
-
-#     session_error = ""
-#     try:
-#         holo_url = f"{HOLO_BASE_URL}{HOLO_ONLINE_ENDPOINT}?merchantid={HOLO_MERCHANT_ID}"
-#         resp = requests.get(holo_url, timeout=10)
-#         resp.raise_for_status()
-#         session_raw = resp.text.strip()
-#         if session_raw.upper().startswith('OK'):
-#             sessionid = session_raw[3:].strip()
-#         else:
-#             logger.error(f"HOLO session NOK: {session_raw}")
-#             session_error = session_raw
-#             sessionid = ""
-#     except Exception as e:
-#         logger.error(f"Erreur session HOLO: {e}")
-#         session_error = str(e)
-#         sessionid = ""
-
-#     payment.sessionid = sessionid
-#     payment.status = "session_created"
-#     payment.save()
-
-#     redirect_form_data = {
-#         "sessionid": sessionid,
-#         "merchantid": HOLO_MERCHANT_ID,
-#         "amount": amount,
-#         "currency": HOLO_CURRENCY,
-#         "purchaseref": purchaseref,
-#         "description": description,
-#         "accepturl": ACCEPT_URL,
-#         "declineurl": DECLINE_URL,
-#         "cancelurl": CANCEL_URL,
-#     }
-
-#     return JsonResponse({
-#         "sessionid": sessionid,
-#         "merchantid": HOLO_MERCHANT_ID,
-#         "purchaseref": purchaseref,
-#         "redirect_form_data": redirect_form_data,
-#         "session_error": session_error,
-#     })
 
 
 def redirect_accept(request):
@@ -226,59 +154,67 @@ def api_notify(request):
     ipaddr=payload.get("ipaddr")
     error=payload.get("error")
     reason=payload.get("reason")
-    
-    # ref_trans = payload.get("ref_trans")
-    # status = payload.get("status")
-    # amount_paid = int(payload.get("amount_paid", 0))
-    # msisdn = payload.get("msisdn")
-    # timestamp_str = payload.get("timestamp")
-    # merchantid = payload.get("merchantid")
-    # purchaseref = payload.get("purchaseref")
-    # signature = payload.get("signature", "")
-
-    # # Optional signature verification
-    # if signature and not verify_signature(body, signature):
-    #     logger.error("Signature invalide")
-    #     return HttpResponseForbidden("Signature invalide")
-
     try:
-        payment = Payment.objects.get(purchaseref=purchaseref)
-    except Payment.DoesNotExist:
-        return HttpResponseBadRequest("purchaseref inconnu")
+        if status=="OK":
+            payement=Payment.objects.filter(purchaseref=purchaseref)
+            if not payement.exists():
+                return HttpResponseForbidden("Référence d'achat inconnue")
+            payement.clientid=clientid
+            payement.cname=cname
+            payement.mobile=mobile
+            payement.paymentref=paymentref
+            payement.payid=payid
+            payement.timestamp=timestamp
+            payement.ipaddr=ipaddr
+            payement.status_return=status
 
-    # if merchantid != HOLO_MERCHANT_ID:
-    #     return HttpResponseForbidden("MerchantID invalide")
-    if amount != payment.amount:
-        logger.warning("Montant payé ne correspond pas")
-        return HttpResponseForbidden("Montant invalide")        
-
-    # payment.ref_trans = ref_trans or payment.ref_trans
-    # payment.msisdn = msisdn or payment.msisdn
-    # payment.timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00')) if timestamp_str else None
-
-    # normalized = (status or '').lower()
-    # if normalized in ("success", "accept"):
-    #     payment.status = "paid"
-    #     # Activate rights placeholder: in real openIMIS, trigger activation flow
-    #     # logger.info(f"Activation des droits pour {payment.beneficiary_id} / {payment.purchaseref}")
-    #     logger.info(f"Activation des droits pour  {payment.purchaseref}")
-    # elif normalized in ("decline", "fail"):
-    #     payment.status = "declined"
-    # elif normalized == "cancel":
-    #     payment.status = "cancelled"
-    # elif normalized == "timeout":
-    #     payment.status = "timeout"
-    # else:
-    #     payment.status = "error"
-
-    # payment.save()
-    # logger.info(f"Notify traité: {payment.purchaseref} -> {payment.status}")
-
-    # Double journalisation (append JSON line)
-    # try:
-    #     with open(BASE_DIR / 'journal_notify.log', 'a', encoding='utf-8') as f:
-    #         f.write(json.dumps(payload) + "\n")
-    # except Exception as e:
-    #     logger.error(f"Journalisation notify échouée: {e}")
+            payement.save()
+            policy=Policy.objets.filter(uuid=payement.policy_uudid,validity_to__isnull=True).first()
+            if policy:
+                family = policy.family
+                head_insuree = family.head_insuree
+                if head_insuree:
+                    insuree_content_type = ContentType.objects.get_for_model(Insuree)
+                    invoice_filter = {
+                        'subject_type': insuree_content_type,
+                        'subject_id': str(head_insuree.id), 
+                        'is_deleted': False
+                    }
+            
+                invoice = Invoice.objects.filter(**invoice_filter).first()
+                if invoice:
+                    if invoice.amount_total==payement.amount:
+                        policy.status=Policy.STATUS_ACTIVE
+                        policy.save()
+                        payement.status="paid"
+                        payement.save()
+                else:
+                    if payement.amount==policy_values(policy, policy.family, policy,None)[0].value:
+                        policy.status=Policy.STATUS_ACTIVE
+                        policy.save()
+                        payement.status="paid"
+                        payement.save()
+            else:
+                payement.status="error"
+                payement.reason="Aucune police d'assurance correspondante trouvee"
+                return HttpResponseForbidden("pas de police d'assurance correspondante trouvee")
+        else:
+            payement=Payment.objects.filter(purchaseref=purchaseref)
+            if not payement.exists():
+                return HttpResponseForbidden("Référence d'achat inconnue")
+            payement.status="error"
+            payement.status_return=status
+            payement.error=error
+            payement.reason=reason
+            payement.clientid=clientid
+            payement.cname=cname
+            payement.mobile=mobile
+            payement.paymentref=paymentref
+            payement.payid=payid
+            payement.timestamp=timestamp
+            payement.ipaddr=ipaddr
+            payement.save()
+    except Exception:
+            return HttpResponseBadRequest("JSON invalide")  
 
     return JsonResponse({"status": "OK"})

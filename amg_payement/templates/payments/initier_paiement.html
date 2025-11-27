@@ -15,12 +15,7 @@
       <label>Numéro d’assuré AMG
         <input class="input" type="text" name="openimis_ref" placeholder="AMG-123456" required value="{{ openimis_ref_prefill }}" {% if locked %}readonly aria-readonly="true"{% endif %} />
       </label>
-      <!-- <label>ID Bénéficiaire
-        <input class="input" type="text" name="beneficiary_id" placeholder="BEN-12345" required value="{{ beneficiary_id_prefill }}" {% if locked %}readonly aria-readonly="true"{% endif %} />
-      </label> -->
-      <!-- <label>Description
-        <input class="input" type="text" name="description" value="{{ description_prefill }}" {% if locked %}readonly aria-readonly="true"{% endif %} />
-      </label> -->
+      <input class="input" type="hidden" name="policy_uuid"  required value="{{ policy_uuid_prefill }}" {% if locked %}readonly aria-readonly="true"{% endif %} />
       <div>
         <button class="btn btn-primary" type="submit">Initier paiement HOLO</button>
       </div>
