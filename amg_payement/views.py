@@ -60,7 +60,7 @@ def initier_paiement(request):
     # if amount <= 0 or not openimis_ref or not beneficiary_id:
         return HttpResponseBadRequest("Paramètres invalides")
 
-    purchaseref = f"AMG-{openimis_ref}-{int(datetime.utcnow().timestamp())}"
+    purchaseref = f"AMG//--//{openimis_ref}//--//{int(datetime.utcnow().timestamp())}"
 
     payment = Payment.objects.create(
         purchaseref=purchaseref,
@@ -114,76 +114,76 @@ def initier_paiement(request):
     return render(request, "payments/holo_auto_submit.html", form_ctx)
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def api_initiate(request):
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except Exception:
-        return HttpResponseBadRequest("JSON invalide")
+# @csrf_exempt
+# @require_http_methods(["POST"])
+# def api_initiate(request):
+#     try:
+#         data = json.loads(request.body.decode("utf-8"))
+#     except Exception:
+#         return HttpResponseBadRequest("JSON invalide")
 
-    amount = int(data.get("amount", 0))
-    openimis_ref = data.get("openimis_ref")
-    description = data.get("description", "Cotisation AMG")
-    # beneficiary_id = data.get("beneficiary_id")
+#     amount = int(data.get("amount", 0))
+#     openimis_ref = data.get("openimis_ref")
+#     description = data.get("description", "Cotisation AMG")
+#     # beneficiary_id = data.get("beneficiary_id")
 
-    if amount <= 0 or not openimis_ref :
-    # if amount <= 0 or not openimis_ref or not beneficiary_id:
-        return HttpResponseBadRequest("Paramètres invalides")
+#     if amount <= 0 or not openimis_ref :
+#     # if amount <= 0 or not openimis_ref or not beneficiary_id:
+#         return HttpResponseBadRequest("Paramètres invalides")
 
-    purchaseref = f"AMG-{openimis_ref}-{int(datetime.utcnow().timestamp())}"
+#     purchaseref = f"AMG-{openimis_ref}-{int(datetime.utcnow().timestamp())}"
 
-    payment = Payment.objects.create(
-        purchaseref=purchaseref,
-        openimis_ref=openimis_ref,
-        # beneficiary_id=beneficiary_id,
-        amount=amount,
-        description=description,
-        currency=HOLO_CURRENCY,
-        merchantid=HOLO_MERCHANT_ID,
-        status="initiating",
-    )
+#     payment = Payment.objects.create(
+#         purchaseref=purchaseref,
+#         openimis_ref=openimis_ref,
+#         # beneficiary_id=beneficiary_id,
+#         amount=amount,
+#         description=description,
+#         currency=HOLO_CURRENCY,
+#         merchantid=HOLO_MERCHANT_ID,
+#         status="initiating",
+#     )
 
-    session_error = ""
-    try:
-        holo_url = f"{HOLO_BASE_URL}{HOLO_ONLINE_ENDPOINT}?merchantid={HOLO_MERCHANT_ID}"
-        resp = requests.get(holo_url, timeout=10)
-        resp.raise_for_status()
-        session_raw = resp.text.strip()
-        if session_raw.upper().startswith('OK'):
-            sessionid = session_raw[3:].strip()
-        else:
-            logger.error(f"HOLO session NOK: {session_raw}")
-            session_error = session_raw
-            sessionid = ""
-    except Exception as e:
-        logger.error(f"Erreur session HOLO: {e}")
-        session_error = str(e)
-        sessionid = ""
+#     session_error = ""
+#     try:
+#         holo_url = f"{HOLO_BASE_URL}{HOLO_ONLINE_ENDPOINT}?merchantid={HOLO_MERCHANT_ID}"
+#         resp = requests.get(holo_url, timeout=10)
+#         resp.raise_for_status()
+#         session_raw = resp.text.strip()
+#         if session_raw.upper().startswith('OK'):
+#             sessionid = session_raw[3:].strip()
+#         else:
+#             logger.error(f"HOLO session NOK: {session_raw}")
+#             session_error = session_raw
+#             sessionid = ""
+#     except Exception as e:
+#         logger.error(f"Erreur session HOLO: {e}")
+#         session_error = str(e)
+#         sessionid = ""
 
-    payment.sessionid = sessionid
-    payment.status = "session_created"
-    payment.save()
+#     payment.sessionid = sessionid
+#     payment.status = "session_created"
+#     payment.save()
 
-    redirect_form_data = {
-        "sessionid": sessionid,
-        "merchantid": HOLO_MERCHANT_ID,
-        "amount": amount,
-        "currency": HOLO_CURRENCY,
-        "purchaseref": purchaseref,
-        "description": description,
-        "accepturl": ACCEPT_URL,
-        "declineurl": DECLINE_URL,
-        "cancelurl": CANCEL_URL,
-    }
+#     redirect_form_data = {
+#         "sessionid": sessionid,
+#         "merchantid": HOLO_MERCHANT_ID,
+#         "amount": amount,
+#         "currency": HOLO_CURRENCY,
+#         "purchaseref": purchaseref,
+#         "description": description,
+#         "accepturl": ACCEPT_URL,
+#         "declineurl": DECLINE_URL,
+#         "cancelurl": CANCEL_URL,
+#     }
 
-    return JsonResponse({
-        "sessionid": sessionid,
-        "merchantid": HOLO_MERCHANT_ID,
-        "purchaseref": purchaseref,
-        "redirect_form_data": redirect_form_data,
-        "session_error": session_error,
-    })
+#     return JsonResponse({
+#         "sessionid": sessionid,
+#         "merchantid": HOLO_MERCHANT_ID,
+#         "purchaseref": purchaseref,
+#         "redirect_form_data": redirect_form_data,
+#         "session_error": session_error,
+#     })
 
 
 def redirect_accept(request):
@@ -213,53 +213,66 @@ def api_notify(request):
     except Exception:
         return HttpResponseBadRequest("JSON invalide")
 
-    ref_trans = payload.get("ref_trans")
-    status = payload.get("status")
-    amount_paid = int(payload.get("amount_paid", 0))
-    msisdn = payload.get("msisdn")
-    timestamp_str = payload.get("timestamp")
-    merchantid = payload.get("merchantid")
-    purchaseref = payload.get("purchaseref")
-    signature = payload.get("signature", "")
+    purchaseref=payload.get("purchaseref")
+    amount=payload.get("amount")
+    currency=payload.get("currency")
+    status=payload.get("status")
+    clientid=payload.get("clientid")
+    cname=payload.get("cname")
+    mobile=payload.get("mobile")
+    paymentref=payload.get("paymentref")
+    payid=payload.get("payid")
+    timestamp=payload.get("timestamp")
+    ipaddr=payload.get("ipaddr")
+    error=payload.get("error")
+    reason=payload.get("reason")
+    
+    # ref_trans = payload.get("ref_trans")
+    # status = payload.get("status")
+    # amount_paid = int(payload.get("amount_paid", 0))
+    # msisdn = payload.get("msisdn")
+    # timestamp_str = payload.get("timestamp")
+    # merchantid = payload.get("merchantid")
+    # purchaseref = payload.get("purchaseref")
+    # signature = payload.get("signature", "")
 
-    # Optional signature verification
-    if signature and not verify_signature(body, signature):
-        logger.error("Signature invalide")
-        return HttpResponseForbidden("Signature invalide")
+    # # Optional signature verification
+    # if signature and not verify_signature(body, signature):
+    #     logger.error("Signature invalide")
+    #     return HttpResponseForbidden("Signature invalide")
 
     try:
         payment = Payment.objects.get(purchaseref=purchaseref)
     except Payment.DoesNotExist:
         return HttpResponseBadRequest("purchaseref inconnu")
 
-    # Validate merchant and amount
-    if merchantid != HOLO_MERCHANT_ID:
-        return HttpResponseForbidden("MerchantID invalide")
-    if amount_paid != payment.amount:
+    # if merchantid != HOLO_MERCHANT_ID:
+    #     return HttpResponseForbidden("MerchantID invalide")
+    if amount != payment.amount:
         logger.warning("Montant payé ne correspond pas")
-        # Mark dispute but continue to record
+        return HttpResponseForbidden("Montant invalide")        
 
-    payment.ref_trans = ref_trans or payment.ref_trans
-    payment.msisdn = msisdn or payment.msisdn
-    payment.timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00')) if timestamp_str else None
+    # payment.ref_trans = ref_trans or payment.ref_trans
+    # payment.msisdn = msisdn or payment.msisdn
+    # payment.timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00')) if timestamp_str else None
 
-    normalized = (status or '').lower()
-    if normalized in ("success", "accept"):
-        payment.status = "paid"
-        # Activate rights placeholder: in real openIMIS, trigger activation flow
-        # logger.info(f"Activation des droits pour {payment.beneficiary_id} / {payment.purchaseref}")
-        logger.info(f"Activation des droits pour  {payment.purchaseref}")
-    elif normalized in ("decline", "fail"):
-        payment.status = "declined"
-    elif normalized == "cancel":
-        payment.status = "cancelled"
-    elif normalized == "timeout":
-        payment.status = "timeout"
-    else:
-        payment.status = "error"
+    # normalized = (status or '').lower()
+    # if normalized in ("success", "accept"):
+    #     payment.status = "paid"
+    #     # Activate rights placeholder: in real openIMIS, trigger activation flow
+    #     # logger.info(f"Activation des droits pour {payment.beneficiary_id} / {payment.purchaseref}")
+    #     logger.info(f"Activation des droits pour  {payment.purchaseref}")
+    # elif normalized in ("decline", "fail"):
+    #     payment.status = "declined"
+    # elif normalized == "cancel":
+    #     payment.status = "cancelled"
+    # elif normalized == "timeout":
+    #     payment.status = "timeout"
+    # else:
+    #     payment.status = "error"
 
-    payment.save()
-    logger.info(f"Notify traité: {payment.purchaseref} -> {payment.status}")
+    # payment.save()
+    # logger.info(f"Notify traité: {payment.purchaseref} -> {payment.status}")
 
     # Double journalisation (append JSON line)
     # try:
