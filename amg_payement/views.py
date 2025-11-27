@@ -14,7 +14,8 @@ from django.contrib.contenttypes.models import ContentType
 from insuree.models import Insuree
 from invoice.models import Invoice
 from policy.values import policy_values
-
+from .notification_client import PayementNotificationSender, PayementNotificationKeys
+from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 
@@ -142,7 +143,7 @@ def api_notify(request):
         return HttpResponseBadRequest("JSON invalide")
 
     purchaseref=payload.get("purchaseref")
-    amount=payload.get("amount")
+    amount=int(payload.get("amount"))
     currency=payload.get("currency")
     status=payload.get("status")
     clientid=payload.get("clientid")
@@ -150,15 +151,29 @@ def api_notify(request):
     mobile=payload.get("mobile")
     paymentref=payload.get("paymentref")
     payid=payload.get("payid")
-    timestamp=payload.get("timestamp")
+    timestamp = datetime.now(timezone.utc)
+    ts = payload.get("timestamp")
+    try:
+        ts_int = int(ts)
+        timestamp = datetime.fromtimestamp(ts_int, tz=timezone.utc)  # UTC
+    except (TypeError, ValueError):
+        timestamp = datetime.now(timezone.utc)        
     ipaddr=payload.get("ipaddr")
     error=payload.get("error")
     reason=payload.get("reason")
     try:
         if status=="OK":
-            payement=Payment.objects.filter(purchaseref=purchaseref)
-            if not payement.exists():
-                return HttpResponseForbidden("Référence d'achat inconnue")
+            payement=Payment.objects.filter(purchaseref=purchaseref).first()
+            if not payement:
+                return HttpResponseForbidden("Référence d'achat inconnue")        
+            if not mobile or mobile=="":
+                insuree=Insuree.objects.filter(chf_id=payement.openimis_ref,validity_to__isnull=True).first()
+                if insuree and insuree.phone and insuree.phone!="":
+                    mobile=insuree.phone
+                if not mobile or mobile=="":
+                    logger.exception("mobile does not exist")
+                    return HttpResponseBadRequest(f"Phone does not existe")
+                    
             payement.clientid=clientid
             payement.cname=cname
             payement.mobile=mobile
@@ -167,12 +182,28 @@ def api_notify(request):
             payement.timestamp=timestamp
             payement.ipaddr=ipaddr
             payement.status_return=status
-
+            if int(amount)!=int(payement.amount):
+                payement.status="error"
+                payement.reason="Montant du paiement incorrect"
+                payement.save()
+                if mobile:
+                    PayementNotificationSender.send_payement_notifications(
+                        insureeId=payement.openimis_ref,
+                        amount=amount,
+                        date=timestamp,
+                        purchaseref=purchaseref,
+                        paymentref=paymentref,
+                        rejection_reason=f"Montant du paiement incorrect {amount} verse, {payement.amount} attendu ",
+                        key=PayementNotificationKeys.WRONG_AMOUNT,
+                        phone=mobile
+                    )
+                return HttpResponseForbidden("Montant du paiement incorrect")
             payement.save()
-            policy=Policy.objets.filter(uuid=payement.policy_uudid,validity_to__isnull=True).first()
+            policy = Policy.objects.filter(uuid=payement.policy_uuid, validity_to__isnull=True).first()
             if policy:
                 family = policy.family
                 head_insuree = family.head_insuree
+                invoice=None
                 if head_insuree:
                     insuree_content_type = ContentType.objects.get_for_model(Insuree)
                     invoice_filter = {
@@ -180,27 +211,81 @@ def api_notify(request):
                         'subject_id': str(head_insuree.id), 
                         'is_deleted': False
                     }
-            
-                invoice = Invoice.objects.filter(**invoice_filter).first()
+                    invoice = Invoice.objects.filter(**invoice_filter).first()
                 if invoice:
-                    if invoice.amount_total==payement.amount:
+                    if int(invoice.amount_total) == int(payement.amount):
                         policy.status=Policy.STATUS_ACTIVE
                         policy.save()
                         payement.status="paid"
                         payement.save()
+                        PayementNotificationSender.send_payement_notifications(
+                            insureeId=payement.openimis_ref,
+                            amount=amount,
+                            date=timestamp,
+                            purchaseref=purchaseref,
+                            paymentref=paymentref,
+                            rejection_reason="",
+                            key=PayementNotificationKeys.ON_APPROVED,
+                            phone=mobile
+                        )
+                    else:
+                        if mobile:
+                            PayementNotificationSender.send_payement_notifications(
+                                insureeId=payement.openimis_ref,
+                                amount=amount,
+                                date=timestamp,
+                                purchaseref=purchaseref,
+                                paymentref=paymentref,
+                                rejection_reason=f"Montant du paiement incorrect {payement.amount} verse, {invoice.amount_total} attendu ",
+                                key=PayementNotificationKeys.WRONG_AMOUNT,
+                                phone=mobile
+                            )
                 else:
-                    if payement.amount==policy_values(policy, policy.family, policy,None)[0].value:
+                    if int(payement.amount)==int(policy_values(policy, policy.family, policy,None)[0].value):
                         policy.status=Policy.STATUS_ACTIVE
                         policy.save()
                         payement.status="paid"
                         payement.save()
+                        PayementNotificationSender.send_payement_notifications(
+                            insureeId=payement.openimis_ref,
+                            amount=amount,
+                            date=timestamp,
+                            purchaseref=purchaseref,
+                            paymentref=paymentref,
+                            rejection_reason="",
+                            key=PayementNotificationKeys.ON_APPROVED,
+                            phone=mobile
+                        )
+                    else:
+                        if mobile:
+                            PayementNotificationSender.send_payement_notifications(
+                                insureeId=payement.openimis_ref,
+                                amount=amount,
+                                date=timestamp,
+                                purchaseref=purchaseref,
+                                paymentref=paymentref,
+                                rejection_reason=f"Montant du paiement incorrect {payement.amount} verse, {policy_values(policy, policy.family, policy,None)[0].value} attendu ",
+                                key=PayementNotificationKeys.WRONG_AMOUNT,
+                                phone=mobile
+                            )
             else:
                 payement.status="error"
                 payement.reason="Aucune police d'assurance correspondante trouvee"
+                if mobile:
+                    PayementNotificationSender.send_payement_notifications(
+                        insureeId=payement.openimis_ref,
+                        amount=amount,
+                        date=timestamp,
+                        purchaseref=purchaseref,
+                        paymentref=paymentref,
+                        rejection_reason=f"Aucune police d'assurance correspondante trouvee ",
+                        key=PayementNotificationKeys.WRONG_AMOUNT,
+                        phone=mobile
+                    )
                 return HttpResponseForbidden("pas de police d'assurance correspondante trouvee")
         else:
-            payement=Payment.objects.filter(purchaseref=purchaseref)
-            if not payement.exists():
+            payement=Payment.objects.filter(purchaseref=purchaseref).first()
+            if not payement:
                 return HttpResponseForbidden("Référence d'achat inconnue")
             payement.status="error"
             payement.status_return=status
@@ -214,7 +299,30 @@ def api_notify(request):
             payement.timestamp=timestamp
             payement.ipaddr=ipaddr
             payement.save()
-    except Exception:
-            return HttpResponseBadRequest("JSON invalide")  
-
+            if mobile:
+                if payement.error and "CANCEL" in payement.error.upper():
+                    PayementNotificationSender.send_payement_notifications(
+                        insureeId=payement.openimis_ref,
+                        amount=amount,
+                        date=timestamp,
+                        purchaseref=purchaseref,
+                        paymentref=paymentref,
+                        rejection_reason=f"",
+                        key=PayementNotificationKeys.ON_CANCEL,
+                        phone=mobile
+                    )
+                else :
+                    PayementNotificationSender.send_payement_notifications(
+                        insureeId=payement.openimis_ref,
+                        amount=amount,
+                        date=timestamp,
+                        purchaseref=purchaseref,
+                        paymentref=paymentref,
+                        rejection_reason=f"Erreur : {payement.error} , raison du rejet :{payement.reason}",
+                        key=PayementNotificationKeys.ON_REJECTED,
+                        phone=mobile
+                    )
+    except Exception as e:
+        logger.exception("Erreur api_notify")
+        return HttpResponseBadRequest(f"Erreur serveur")
     return JsonResponse({"status": "OK"})

@@ -9,7 +9,6 @@ class Payment(models.Model):
     currency = models.IntegerField(default=174)
     description = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=32, default='initiated')
-    ref_trans = models.CharField(max_length=128, blank=True)
     merchantid = models.CharField(max_length=32, blank=True)
     sessionid = models.CharField(max_length=128, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
