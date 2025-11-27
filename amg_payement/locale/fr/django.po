@@ -1,0 +1,11 @@
+msgid "payement.sms_on_approved"
+msgstr "La police de l’assuré %(InsureeUuid)s a été activée après le paiement de %(Amount)s le %(Date)s. Réf. openIMIS : %(PurchaseRef)s — Réf. HOLO : %(PaymentRef)s."
+
+msgid "payement.sms_on_rejected"
+msgstr "Le paiement pour la police de l’assuré %(InsureeUuid)s a échoué en raison de : %(RejectionReason)s."
+
+msgid "payement.sms_on_cancel"
+msgstr "Le paiement pour la police de l’assuré %(InsureeUuid)s a été annulé."
+
+msgid "payement.wrong_amount"
+msgstr "Le paiement de la police de l’assuré %(InsureeUuid)s a été effectué, mais le montant ne correspond pas. La police n’a donc pas été activée. Raison : %(RejectionReason)s."

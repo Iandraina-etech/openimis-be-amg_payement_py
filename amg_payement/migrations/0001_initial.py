@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('purchaseref', models.CharField(max_length=64, unique=True)),
                 ('openimis_ref', models.CharField(max_length=64)),
-                ('beneficiary_id', models.CharField(max_length=64)),
+                # ('beneficiary_id', models.CharField(max_length=64)),
                 ('amount', models.IntegerField()),
                 ('currency', models.IntegerField(default=174)),
                 ('description', models.CharField(blank=True, max_length=255)),
