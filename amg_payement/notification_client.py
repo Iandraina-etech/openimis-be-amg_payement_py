@@ -39,6 +39,8 @@ class PayementNotificationClient:
             message = message % context
         except KeyError as e:
             logger.warning(f"Key {e} not found in template {key}. The message can't be formatted")
+        print(message)
+        print(phone)
 
         return self.provider.send_notification(message, phone)
 
