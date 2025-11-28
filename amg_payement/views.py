@@ -128,39 +128,44 @@ def redirect_cancel(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["GET"])
 def api_notify(request):
+
     # IP whitelist check
     remote_addr = request.META.get('REMOTE_ADDR') or request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-    if remote_addr and not is_ip_whitelisted(remote_addr):
-        logger.warning(f"Notify IP non autorisée: {remote_addr}")
-        return HttpResponseForbidden("IP non autorisée")
+    # if remote_addr and not is_ip_whitelisted(remote_addr):
+    #     logger.warning(f"Notify IP non autorisée: {remote_addr}")
+    #     return HttpResponseForbidden("IP non autorisée")
 
-    body = request.body
-    try:
-        payload = json.loads(body.decode("utf-8"))
-    except Exception:
-        return HttpResponseBadRequest("JSON invalide")
+    payload = request.GET
 
-    purchaseref=payload.get("purchaseref")
-    amount=int(payload.get("amount"))
-    currency=payload.get("currency")
-    status=payload.get("status")
-    clientid=payload.get("clientid")
-    cname=payload.get("cname")
-    mobile=payload.get("mobile")
-    paymentref=payload.get("paymentref")
-    payid=payload.get("payid")
-    timestamp = datetime.now(timezone.utc)
+    purchaseref = payload.get("purchaseref")
+    amount_str = payload.get("amount")   # string attendue
+    currency = payload.get("currency")
+    status = payload.get("status")
+    clientid = payload.get("clientid")
+    cname = payload.get("cname")
+    mobile = payload.get("mobile")
+    paymentref = payload.get("paymentref") 
+    payid = payload.get("payid")
     ts = payload.get("timestamp")
+    ipaddr = payload.get("ipaddr")
+    error = payload.get("error")
+    reason = payload.get("reason")
+
+    if amount_str is None:
+        return HttpResponseBadRequest("Missing amount parameter")
+
+    try:
+        amount = int(amount_str)
+    except ValueError:
+        return HttpResponseBadRequest("amount must be an integer")
     try:
         ts_int = int(ts)
-        timestamp = datetime.fromtimestamp(ts_int, tz=timezone.utc)  # UTC
+        timestamp = datetime.fromtimestamp(ts_int, tz=timezone.utc)
     except (TypeError, ValueError):
-        timestamp = datetime.now(timezone.utc)        
-    ipaddr=payload.get("ipaddr")
-    error=payload.get("error")
-    reason=payload.get("reason")
+        timestamp = datetime.now(timezone.utc)
+
     try:
         if status=="OK":
             payement=Payment.objects.filter(purchaseref=purchaseref).first()

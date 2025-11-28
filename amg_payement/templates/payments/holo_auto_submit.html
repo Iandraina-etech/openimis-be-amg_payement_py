@@ -17,7 +17,9 @@
     <input type="hidden" name="accepturl" value="{{ acceptUrl }}">
     <input type="hidden" name="declineurl" value="{{ declineUrl }}">
     <input type="hidden" name="cancelurl" value="{{ cancelUrl }}">
+    {% if sessionid %}
     <input type="submit" class="btn btn-primary" name="ok" value="Payer"/>
+    {% endif %}
     <!-- {% if not auto_submit %} -->
       {% if not sessionid %}
         <div class="status error">Session HOLO absente. Impossible d’envoyer le formulaire. Contactez l’administrateur pour activer le marchand ou vérifier la connexion.</div>
@@ -25,7 +27,6 @@
       {% if "holourl" in action_url|lower %}
         <div class="status error">HOLO_BASE_URL n’est pas configuré correctement (placeholder). Définissez l’URL HOLO réelle dans les paramètres.</div>
       {% endif %}
-      <button class="btn btn-primary" type="submit" {% if not sessionid %}disabled aria-disabled="true"{% endif %}>Payer la cotisation</button>
     <!-- {% endif %} -->
   </form>
   </div>

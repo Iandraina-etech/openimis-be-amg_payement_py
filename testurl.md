@@ -1,0 +1,1 @@
+localhost:3000/amg-pay/holo/notificationpaiement?purchaseref=AMG//--//111111169302//--//1764313385&amount=10000&currency=174&status=OK&clientid=test&cname=MARIN=&mobile=+261349065184&payementref=test-mock&payid=test=&timestamp=1469024554&ipaddr=192.1.68.1.187&error=
