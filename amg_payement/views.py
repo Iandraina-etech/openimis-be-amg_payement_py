@@ -1,7 +1,7 @@
 import json
 import logging
 import requests
-from datetime import datetime
+from datetime import date, datetime
 # from django.conf import settings
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
 from django.shortcuts import render
@@ -16,6 +16,7 @@ from invoice.models import Invoice
 from policy.values import policy_values
 from .notification_client import PayementNotificationSender, PayementNotificationKeys
 from datetime import datetime, timezone
+from contribution.models import Premium
 logger = logging.getLogger(__name__)
 
 
@@ -218,11 +219,19 @@ def api_notify(request):
                     }
                     invoice = Invoice.objects.filter(**invoice_filter).first()
                 if invoice:
-                    if int(invoice.amount_total) == int(payement.amount):
+                    if int(invoice.amount_total) <= int(payement.amount):
                         policy.status=Policy.STATUS_ACTIVE
                         policy.save()
                         payement.status="paid"
                         payement.save()
+                        premium=Premium()
+                        premium.policy=policy
+                        premium.amount=payement.amount
+                        premium.receipt=purchaseref
+                        premium.pay_date = date.today()
+                        premium.pay_type="M"
+                        premium.audit_user_id=2
+                        premium.save()
                         PayementNotificationSender.send_payement_notifications(
                             insureeId=payement.openimis_ref,
                             amount=amount,
@@ -246,11 +255,19 @@ def api_notify(request):
                                 phone=mobile
                             )
                 else:
-                    if int(payement.amount)==int(policy_values(policy, policy.family, policy,None)[0].value):
+                    if int(payement.amount)>=int(policy_values(policy, policy.family, policy,None)[0].value):
                         policy.status=Policy.STATUS_ACTIVE
                         policy.save()
                         payement.status="paid"
                         payement.save()
+                        premium=Premium()
+                        premium.policy=policy
+                        premium.amount=payement.amount
+                        premium.receipt=purchaseref
+                        premium.pay_date = date.today()
+                        premium.pay_type="M"
+                        premium.audit_user_id=2
+                        premium.save()
                         PayementNotificationSender.send_payement_notifications(
                             insureeId=payement.openimis_ref,
                             amount=amount,
