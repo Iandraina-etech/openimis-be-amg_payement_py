@@ -41,8 +41,8 @@ CANCEL_URL = cfg["CANCEL_URL"]
 def initier_paiement(request):
     if request.method == "GET":
         amount = request.GET.get("amount")
-        openimis_ref = request.GET.get("openimis_ref")
-        policy_uuid = request.GET.get("policy_uuid")
+        openimis_ref = request.GET.get("openimisRef")
+        policy_uuid = request.GET.get("policyUuid")
         lock_raw = (request.GET.get("lock") or "").lower()
         lock = lock_raw in ("1", "true", "oui", "yes")
         prefill_present = any([amount, openimis_ref])
