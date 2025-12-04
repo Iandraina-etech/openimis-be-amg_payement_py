@@ -46,6 +46,23 @@ def initier_paiement(request):
         lock_raw = (request.GET.get("lock") or "").lower()
         lock = lock_raw in ("1", "true", "oui", "yes")
         prefill_present = any([amount, openimis_ref])
+        if (amount == "" or int(amount) <= 0) or (openimis_ref == "" or not openimis_ref) or (policy_uuid == "" or not policy_uuid):
+            ctx = {
+                "erreur": "Paramètres invalides pour initier le paiement. Veuillez réessayer avec le bon lien.",
+            }
+            return render(request, "payments/error.html", ctx)
+        policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
+        if not policy:
+            ctx = {
+                "erreur": "Police d'assurance a activer non trouvee",
+            }
+            return render(request, "payments/error.html", ctx)
+        insuree=Insuree.objects.filter(chf_id=openimis_ref,validity_to__isnull=True).first()
+        if not insuree :
+            ctx = {
+                "erreur": "Assure a activer non trouvee",
+            }
+            return render(request, "payments/error.html", ctx)      
         ctx = {
             "amount_prefill": amount,
             "openimis_ref_prefill": openimis_ref,
@@ -60,9 +77,24 @@ def initier_paiement(request):
     description = f"Cotisation AMG pour {openimis_ref} montant {amount} "
     policy_uuid = request.POST.get("policy_uuid", "")
 
-    if amount <= 0 or not openimis_ref or not policy_uuid or not openimis_ref:
-        return HttpResponseBadRequest("Paramètres invalides")
-
+    if (amount == "" or int(amount) <= 0) or (openimis_ref == "" or not openimis_ref) or (policy_uuid == "" or not policy_uuid):
+            ctx = {
+                "erreur": "Paramètres invalides pour initier le paiement. Veuillez réessayer avec le bon lien.",
+            }
+            return render(request, "payments/error.html", ctx)
+    policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
+    if not policy:
+        ctx = {
+            "erreur": "Police d'assurance a activer non trouvee",
+        }
+        return render(request, "payments/error.html", ctx)
+    insuree=Insuree.objects.filter(chf_id=openimis_ref,validity_to__isnull=True).first()
+    if not insuree :
+        ctx = {
+            "erreur": "Assure a activer non trouvee",
+        }
+        return render(request, "payments/error.html", ctx)      
+    
     purchaseref = f"AMG//--//{openimis_ref}//--//{int(datetime.utcnow().timestamp())}"
 
     payment = Payment.objects.create(
