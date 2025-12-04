@@ -60,7 +60,7 @@ def initier_paiement(request):
     description = f"Cotisation AMG pour {openimis_ref} montant {amount} "
     policy_uuid = request.POST.get("policy_uuid", "")
 
-    if amount <= 0 or not openimis_ref or not policy_uuid:
+    if amount <= 0 or not openimis_ref or not policy_uuid or not openimis_ref:
         return HttpResponseBadRequest("Paramètres invalides")
 
     purchaseref = f"AMG//--//{openimis_ref}//--//{int(datetime.utcnow().timestamp())}"
