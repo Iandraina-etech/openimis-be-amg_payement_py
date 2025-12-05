@@ -43,6 +43,7 @@ def initier_paiement(request):
         amount = request.GET.get("amount")
         try :
             amount=float(amount)
+            amount=int(amount)
         except :
             ctx = {
                 "erreur": "montant invalide",
@@ -246,7 +247,8 @@ def api_notify(request):
         return HttpResponseBadRequest("Missing amount parameter")
 
     try:
-        amount = int(amount_str)
+        amount=float(amount_str)
+        amount = int(amount)
     except ValueError:
         return HttpResponseBadRequest("amount must be an integer")
     try:
