@@ -41,6 +41,13 @@ CANCEL_URL = cfg["CANCEL_URL"]
 def initier_paiement(request):
     if request.method == "GET":
         amount = request.GET.get("amount")
+        try :
+            amount=float(amount)
+        except :
+            ctx = {
+                "erreur": "montant invalide",
+            }
+            return render(request, "payments/error.html", ctx)       
         openimis_ref = request.GET.get("openimisRef")
         policy_uuid = request.GET.get("policyUuid")
         lock_raw = (request.GET.get("lock") or "").lower()
@@ -51,18 +58,42 @@ def initier_paiement(request):
                 "erreur": "Paramètres invalides pour initier le paiement. Veuillez réessayer avec le bon lien.",
             }
             return render(request, "payments/error.html", ctx)
-        policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
-        if not policy:
-            ctx = {
-                "erreur": "Police d'assurance a activer non trouvee",
-            }
-            return render(request, "payments/error.html", ctx)
         insuree=Insuree.objects.filter(chf_id=openimis_ref,validity_to__isnull=True).first()
         if not insuree :
             ctx = {
                 "erreur": "Assure a activer non trouvee",
             }
             return render(request, "payments/error.html", ctx)      
+        policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
+        if not policy:
+            ctx = {
+                "erreur": "Police d'assurance a activer non trouvee",
+            }
+            return render(request, "payments/error.html", ctx)
+        else:
+            family = policy.family
+            head_insuree = family.head_insuree
+            invoice=None
+            if head_insuree:
+                insuree_content_type = ContentType.objects.get_for_model(Insuree)
+                invoice_filter = {
+                    'subject_type': insuree_content_type,
+                    'subject_id': str(head_insuree.id), 
+                    'is_deleted': False
+                }
+                invoice = Invoice.objects.filter(**invoice_filter).first()
+            if invoice:
+                if int(invoice.amount_total) != int(amount):
+                    ctx = {
+                        "erreur": "Le montant fourni ne correspond pas au montant de la facture.",
+                    }
+                    return render(request, "payments/error.html", ctx)
+            else:
+                if int(amount)!=int(policy_values(policy, policy.family, policy,None)[0].value):
+                    ctx = {
+                        "erreur": "Le montant fourni ne correspond pas au montant de la prime.",
+                    }
+                    return render(request, "payments/error.html", ctx)
         ctx = {
             "amount_prefill": amount,
             "openimis_ref_prefill": openimis_ref,
@@ -83,17 +114,42 @@ def initier_paiement(request):
             }
             return render(request, "payments/error.html", ctx)
     policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
-    if not policy:
-        ctx = {
-            "erreur": "Police d'assurance a activer non trouvee",
-        }
-        return render(request, "payments/error.html", ctx)
     insuree=Insuree.objects.filter(chf_id=openimis_ref,validity_to__isnull=True).first()
     if not insuree :
         ctx = {
             "erreur": "Assure a activer non trouvee",
         }
-        return render(request, "payments/error.html", ctx)      
+        return render(request, "payments/error.html", ctx)
+    policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
+    if not policy:
+        ctx = {
+            "erreur": "Police d'assurance a activer non trouvee",
+        }
+        return render(request, "payments/error.html", ctx)
+    else:
+        family = policy.family
+        head_insuree = family.head_insuree
+        invoice=None
+        if head_insuree:
+            insuree_content_type = ContentType.objects.get_for_model(Insuree)
+            invoice_filter = {
+                'subject_type': insuree_content_type,
+                'subject_id': str(head_insuree.id), 
+                'is_deleted': False
+            }
+            invoice = Invoice.objects.filter(**invoice_filter).first()
+        if invoice:
+            if int(invoice.amount_total) != int(amount):
+                ctx = {
+                    "erreur": "Le montant fourni ne correspond pas au montant de la facture.",
+                }
+                return render(request, "payments/error.html", ctx)
+        else:
+            if int(amount)!=int(policy_values(policy, policy.family, policy,None)[0].value):
+                ctx = {
+                    "erreur": "Le montant fourni ne correspond pas au montant de la prime.",
+                }
+                return render(request, "payments/error.html", ctx)      
     
     purchaseref = f"AMG//--//{openimis_ref}//--//{int(datetime.utcnow().timestamp())}"
 
@@ -221,6 +277,7 @@ def api_notify(request):
             payement.ipaddr=ipaddr
             payement.status_return=status
             if int(amount)!=int(payement.amount):
+                payement.status_return="NOK"
                 payement.status="error"
                 payement.reason="Montant du paiement incorrect"
                 payement.save()
@@ -275,6 +332,11 @@ def api_notify(request):
                             phone=mobile
                         )
                     else:
+                        # status="NOK"
+                        payement.status_return="NOK"
+                        payement.status="error"
+                        payement.reason="Montant du paiement incorrect"
+                        payement.save()
                         if mobile:
                             PayementNotificationSender.send_payement_notifications(
                                 insureeId=payement.openimis_ref,
@@ -311,6 +373,11 @@ def api_notify(request):
                             phone=mobile
                         )
                     else:
+                        # status="NOK"
+                        payement.status_return="NOK"
+                        payement.status="error"
+                        payement.reason="Montant du paiement incorrect"
+                        payement.save()
                         if mobile:
                             PayementNotificationSender.send_payement_notifications(
                                 insureeId=payement.openimis_ref,
