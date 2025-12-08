@@ -13,7 +13,7 @@ DEFAULT_CONFIG = {
     "ACCEPT_URL": "https://dev.amg.km/amg-pay/holo/acceptpaiement",
     "DECLINE_URL": "https://dev.amg.km/amg-pay/holo/declinepaiement",
     "CANCEL_URL": "https://dev.amg.km/amg-pay/holo/cancelpaiement",
-    "IP_WHITELIST": ["3.6.76.175"],
+    "IP_WHITELIST": ["3.6.76.175","54.38.250.251","5.135.34.227","176.31.43.71","135.125.248.117"],
     "SIGNING_SECRET": "change-me",
 }
 
