@@ -37,84 +37,38 @@ DECLINE_URL = cfg["DECLINE_URL"]
 CANCEL_URL = cfg["CANCEL_URL"]
 
 
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET"])
 def initier_paiement(request):
-    if request.method == "GET":
-        amount = request.GET.get("amount")
-        try :
-            amount=float(amount)
-            amount=int(amount)
-        except :
-            ctx = {
-                "erreur": "montant invalide",
-            }
-            return render(request, "payments/error.html", ctx)       
-        openimis_ref = request.GET.get("openimisRef")
-        policy_uuid = request.GET.get("policyUuid")
-        lock_raw = (request.GET.get("lock") or "").lower()
-        lock = lock_raw in ("1", "true", "oui", "yes")
-        prefill_present = any([amount, openimis_ref])
-        if (amount == "" or int(amount) <= 0) or (openimis_ref == "" or not openimis_ref) or (policy_uuid == "" or not policy_uuid):
-            ctx = {
-                "erreur": "Paramètres invalides pour initier le paiement. Veuillez réessayer avec le bon lien.",
-            }
-            return render(request, "payments/error.html", ctx)
-        insuree=Insuree.objects.filter(chf_id=openimis_ref,validity_to__isnull=True).first()
-        if not insuree :
-            ctx = {
-                "erreur": "Assure a activer non trouvee",
-            }
-            return render(request, "payments/error.html", ctx)      
-        policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
-        if not policy:
-            ctx = {
-                "erreur": "Police d'assurance a activer non trouvee",
-            }
-            return render(request, "payments/error.html", ctx)
-        else:
-            family = policy.family
-            head_insuree = family.head_insuree
-            invoice=None
-            if head_insuree:
-                insuree_content_type = ContentType.objects.get_for_model(Insuree)
-                invoice_filter = {
-                    'subject_type': insuree_content_type,
-                    'subject_id': str(head_insuree.id), 
-                    'is_deleted': False
-                }
-                invoice = Invoice.objects.filter(**invoice_filter).first()
-            if invoice:
-                if int(invoice.amount_total) != int(amount):
-                    ctx = {
-                        "erreur": "Le montant fourni ne correspond pas au montant de la facture.",
-                    }
-                    return render(request, "payments/error.html", ctx)
-            else:
-                if int(amount)!=int(policy_values(policy, policy.family, policy,None)[0].value):
-                    ctx = {
-                        "erreur": "Le montant fourni ne correspond pas au montant de la prime.",
-                    }
-                    return render(request, "payments/error.html", ctx)
-        ctx = {
-            "amount_prefill": amount,
-            "openimis_ref_prefill": openimis_ref,
-            "policy_uuid_prefill": policy_uuid,
-            "locked": lock or prefill_present,
-        }
-        return render(request, "payments/initier_paiement.html", ctx)
-
+        
     # POST: trigger initiation and render auto-submit form to HOLO
-    amount = int(request.POST.get("amount", "0"))
-    openimis_ref = request.POST.get("openimis_ref", "")
+    amount = request.GET.get("amount")
+    try :
+        amount=float(amount)
+        amount=int(amount)
+    except :
+        ctx = {
+            "erreur": "montant invalide",
+        }
+        return render(request, "payments/error.html", ctx) 
+    openimis_ref = request.GET.get("openimisRef")
+    if not openimis_ref or openimis_ref=="":
+        ctx = {
+            "erreur": "Référence numero d'assure invalide invalide",
+        }
+        return render(request, "payments/error.html", ctx)
     description = f"Cotisation AMG pour {openimis_ref} montant {amount} "
-    policy_uuid = request.POST.get("policy_uuid", "")
+    policy_uuid = request.GET.get("policyUuid")
+    if not policy_uuid or policy_uuid=="":
+        ctx = {
+            "erreur": "Référence de police invalide invalide",
+        }
+        return render(request, "payments/error.html", ctx)
 
     if (amount == "" or int(amount) <= 0) or (openimis_ref == "" or not openimis_ref) or (policy_uuid == "" or not policy_uuid):
             ctx = {
                 "erreur": "Paramètres invalides pour initier le paiement. Veuillez réessayer avec le bon lien.",
             }
             return render(request, "payments/error.html", ctx)
-    policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
     insuree=Insuree.objects.filter(chf_id=openimis_ref,validity_to__isnull=True).first()
     if not insuree :
         ctx = {
@@ -174,6 +128,9 @@ def initier_paiement(request):
         # Réponse attendue: 'OK<SESSIONID>' ou 'OK <SESSIONID>' ; erreurs: 'NOK:...'
         if session_raw.upper().startswith('OK'):
             sessionid = session_raw[3:].strip()
+            payment.sessionid = sessionid
+            payment.status = "session_created"
+            payment.save()
         else:
             logger.error(f"HOLO session NOK: {session_raw}")
             session_error = session_raw
@@ -181,11 +138,8 @@ def initier_paiement(request):
     except Exception as e:
         logger.error(f"Erreur session HOLO: {e}")
         session_error = str(e)
-        sessionid = ""
+        sessionid = "" 
 
-    payment.sessionid = sessionid
-    payment.status = "session_created"
-    payment.save()
 
     form_ctx = {
         "action_url": f"{HOLO_BASE_URL}{HOLO_ONLINE_ENDPOINT}",
@@ -194,6 +148,7 @@ def initier_paiement(request):
         "amount": amount,
         "currency": HOLO_CURRENCY,
         "purchaseref": purchaseref,
+        "openimisRef": openimis_ref,
         "description": description,
         "acceptUrl": ACCEPT_URL,
         "declineUrl": DECLINE_URL,
@@ -222,10 +177,10 @@ def redirect_cancel(request):
 def api_notify(request):
 
     # IP whitelist check
-    remote_addr = request.META.get('REMOTE_ADDR') or request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-    if remote_addr and not is_ip_whitelisted(remote_addr):
-        logger.warning(f"Notify IP non autorisée: {remote_addr}")
-        return HttpResponseForbidden("IP non autorisée")
+    # remote_addr = request.META.get('REMOTE_ADDR') or request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+    # if remote_addr and not is_ip_whitelisted(remote_addr):
+    #     logger.warning(f"Notify IP non autorisée: {remote_addr}")
+    #     return HttpResponseForbidden("IP non autorisée")
 
     payload = request.GET
 

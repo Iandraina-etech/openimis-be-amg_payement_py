@@ -97,3 +97,23 @@ body {
 .stack-8 > * + * { margin-top: 8px; }
 .stack-12 > * + * { margin-top: 12px; }
 .center { display: grid; place-items: center; }
+/* Accentuer la note d'information */
+.note-strong {
+  background: var(--amg-teal-50);
+  border-left: 5px solid var(--amg-teal);
+  padding: 14px 18px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--amg-dark);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(45, 218, 199, 0.25);
+  line-height: 1.4;
+}
+
+/* Petite icône décorative */
+.note-strong::before {
+  content: "ℹ️";
+  margin-right: 8px;
+  font-size: 1.2rem;
+  vertical-align: middle;
+}
