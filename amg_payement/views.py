@@ -177,10 +177,10 @@ def redirect_cancel(request):
 def api_notify(request):
 
     # IP whitelist check
-    # remote_addr = request.META.get('REMOTE_ADDR') or request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-    # if remote_addr and not is_ip_whitelisted(remote_addr):
-    #     logger.warning(f"Notify IP non autorisée: {remote_addr}")
-    #     return HttpResponseForbidden("IP non autorisée")
+    remote_addr = request.META.get('REMOTE_ADDR') or request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+    if remote_addr and not is_ip_whitelisted(remote_addr):
+        logger.warning(f"Notify IP non autorisée: {remote_addr}")
+        return HttpResponseForbidden("IP non autorisée")
 
     payload = request.GET
 
