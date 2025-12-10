@@ -221,8 +221,14 @@ def redirect_cancel(request):
 @require_http_methods(["GET"])
 def api_notify(request):
 
-    # IP whitelist check
-    remote_addr = request.META.get('REMOTE_ADDR') or request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+    logger.warning(f"REMOTE_ADDR: {request.META.get('REMOTE_ADDR')}")
+    logger.warning(f"HTTP_X_REAL_IP: {request.META.get('HTTP_X_REAL_IP')}")
+    logger.warning(f"HTTP_X_FORWARDED_FOR: {request.META.get('HTTP_X_FORWARDED_FOR')}")
+    remote_addr = (
+        request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or 
+        (request.META.get('HTTP_X_REAL_IP') or '').strip() or 
+        request.META.get('REMOTE_ADDR', '')
+    )
     if remote_addr and not is_ip_whitelisted(remote_addr):
         logger.warning(f"Notify IP non autorisée: {remote_addr}")
         return HttpResponseForbidden("IP non autorisée")
