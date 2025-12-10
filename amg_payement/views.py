@@ -210,7 +210,7 @@ def api_notify(request):
         logger.warning(f"Payment not approved, status: {status}, error: {error}, reason: {reason}")
         payement=Payment.objects.filter(purchaseref=purchaseref).first()
         if not payement:
-            logger.warning("Référence d'achat inconnue")
+            logger.warning(f"Référence d'achat inconnue {purchaseref}")
             return HttpResponseForbidden("Référence d'achat inconnue")
         payement.status="error"
         payement.status_return=status
@@ -271,7 +271,7 @@ def api_notify(request):
         if status=="OK":
             payement=Payment.objects.filter(purchaseref=purchaseref).first()
             if not payement:
-                logger.warning("Référence d'achat inconnue")
+                logger.warning(f"Référence d'achat inconnue {purchaseref}")
                 return HttpResponseForbidden("Référence d'achat inconnue")        
             if not mobile or mobile=="":
                 insuree=Insuree.objects.filter(chf_id=payement.openimis_ref,validity_to__isnull=True).first()
@@ -354,6 +354,7 @@ def api_notify(request):
                         payement.reason="Montant du paiement incorrect"
                         payement.save()
                         logger.warning("Montant du paiement incorrect par rapport a la facture")
+                        logger.warning(f"invoice amount total: {invoice.amount_total}, payment amount: {payement.amount}")
                         if mobile:
                             PayementNotificationSender.send_payement_notifications(
                                 insureeId=payement.openimis_ref,
@@ -397,6 +398,7 @@ def api_notify(request):
                         payement.reason="Montant du paiement incorrect"
                         payement.save()
                         logger.warning("Montant du paiement incorrect par rapport a la prime")
+                        logger.warning(f"policy premium amount: {policy_values(policy, policy.family, policy,None)[0].value}, payment amount: {payement.amount}")
                         if mobile:
                             PayementNotificationSender.send_payement_notifications(
                                 insureeId=payement.openimis_ref,
@@ -413,6 +415,8 @@ def api_notify(request):
                 payement.status="error"
                 payement.reason="Aucune police d'assurance correspondante trouvee"
                 logger.warning("Aucune police d'assurance correspondante trouvee")
+                payement.save()
+                logger.warning("Aucune police d'assurance correspondante trouvee"+payement.policy_uuid)
                 if mobile:
                     PayementNotificationSender.send_payement_notifications(
                         insureeId=payement.openimis_ref,
