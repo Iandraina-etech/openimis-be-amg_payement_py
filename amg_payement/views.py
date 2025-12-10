@@ -106,7 +106,7 @@ def initier_paiement(request):
                 }
                 return render(request, "payments/error.html", ctx)      
     
-    purchaseref = f"AMG//--//{openimis_ref}//--//{int(datetime.utcnow().timestamp())}"
+    purchaseref = f"AMG-{openimis_ref}-{int(datetime.utcnow().timestamp())}"
 
     payment = Payment.objects.create(
         purchaseref=purchaseref,
@@ -203,6 +203,50 @@ def api_notify(request):
     ipaddr = payload.get("ipaddr","")
     error = payload.get("error","")
     reason = payload.get("reason","")
+
+    if status == "NOK":
+        logger.warning(f"Payment not approved, status: {status}, error: {error}, reason: {reason}")
+        payement=Payment.objects.filter(purchaseref=purchaseref).first()
+        if not payement:
+            logger.warning("Référence d'achat inconnue")
+            return HttpResponseForbidden("Référence d'achat inconnue")
+        payement.status="error"
+        payement.status_return=status
+        payement.error=error
+        payement.reason=reason
+        payement.clientid=clientid
+        payement.cname=cname
+        payement.mobile=mobile
+        payement.paymentref=paymentref
+        payement.payid=payid
+        payement.timestamp=timestamp
+        payement.ipaddr=ipaddr
+        payement.save()
+        if mobile:
+            if payement.error and "CANCEL" in payement.error.upper():
+                logger.warning("Paiement annulé par l'utilisateur")
+                PayementNotificationSender.send_payement_notifications(
+                    insureeId=payement.openimis_ref,
+                    amount=amount,
+                    date=timestamp,
+                    purchaseref=purchaseref,
+                    paymentref=paymentref,
+                    rejection_reason=f"",
+                    key=PayementNotificationKeys.ON_CANCEL,
+                    phone=mobile
+                )
+            else :
+                logger.warning("Paiement rejeté")
+                PayementNotificationSender.send_payement_notifications(
+                    insureeId=payement.openimis_ref,
+                    amount=amount,
+                    date=timestamp,
+                    purchaseref=purchaseref,
+                    paymentref=paymentref,
+                    rejection_reason=f"Erreur : {payement.error} , raison du rejet :{payement.reason}",
+                    key=PayementNotificationKeys.ON_REJECTED,
+                    phone=mobile
+                )
 
     if amount_str is None:
         logger.warning("Missing amount parameter in notify")
