@@ -249,6 +249,7 @@ def api_notify(request):
                 payement.status="error"
                 payement.reason="Montant du paiement incorrect"
                 payement.save()
+                logger.warning("Montant du paiement incorrect ver1")
                 if mobile:
                     PayementNotificationSender.send_payement_notifications(
                         insureeId=payement.openimis_ref,
@@ -260,7 +261,6 @@ def api_notify(request):
                         key=PayementNotificationKeys.WRONG_AMOUNT,
                         phone=mobile
                     )
-                logger.warning("Montant du paiement incorrect")
                 return HttpResponseForbidden("Montant du paiement incorrect")
             payement.save()
             policy = Policy.objects.filter(uuid=payement.policy_uuid, validity_to__isnull=True).first()
