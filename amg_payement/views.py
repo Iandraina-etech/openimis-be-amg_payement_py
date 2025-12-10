@@ -197,6 +197,8 @@ def api_notify(request):
     clientid = payload.get("clientid","")
     cname = payload.get("cname","")
     mobile = payload.get("mobile","")
+    if mobile and len(mobile)>3 and mobile.startswith("269"):
+        mobile = mobile[3:]
     paymentref = payload.get("paymentref","") 
     payid = payload.get("payid","")
     ts = payload.get("timestamp","")
