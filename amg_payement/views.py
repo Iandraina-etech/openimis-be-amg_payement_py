@@ -132,11 +132,11 @@ def initier_paiement(request):
             payment.status = "session_created"
             payment.save()
         else:
-            logger.error(f"HOLO session NOK: {session_raw}")
+            logger.warning(f"HOLO session NOK: {session_raw}")
             session_error = session_raw
             sessionid = ""
     except Exception as e:
-        logger.error(f"Erreur session HOLO: {e}")
+        logger.warning(f"Erreur session HOLO: {e}")
         session_error = str(e)
         sessionid = "" 
 
@@ -205,30 +205,35 @@ def api_notify(request):
     reason = payload.get("reason","")
 
     if amount_str is None:
+        logger.warning("Missing amount parameter in notify")
         return HttpResponseBadRequest("Missing amount parameter")
 
     try:
         amount=float(amount_str)
         amount = int(amount)
     except ValueError:
+        logger.warning("amount must be an integer")
         return HttpResponseBadRequest("amount must be an integer")
     try:
         ts_int = int(ts)
         timestamp = datetime.fromtimestamp(ts_int, tz=timezone.utc)
     except (TypeError, ValueError):
+        logger.warning("Invalid timestamp format, using current time")
         timestamp = datetime.now(timezone.utc)
 
     try:
         if status=="OK":
             payement=Payment.objects.filter(purchaseref=purchaseref).first()
             if not payement:
+                logger.warning("Référence d'achat inconnue")
                 return HttpResponseForbidden("Référence d'achat inconnue")        
             if not mobile or mobile=="":
                 insuree=Insuree.objects.filter(chf_id=payement.openimis_ref,validity_to__isnull=True).first()
                 if insuree and insuree.phone and insuree.phone!="":
                     mobile=insuree.phone
                 if not mobile or mobile=="":
-                    logger.exception("mobile does not exist")
+                    # logger.exception("mobile does not exist")
+                    logger.warning("Phone does not existe")
                     return HttpResponseBadRequest(f"Phone does not existe")
                     
             payement.clientid=clientid
@@ -255,6 +260,7 @@ def api_notify(request):
                         key=PayementNotificationKeys.WRONG_AMOUNT,
                         phone=mobile
                     )
+                logger.warning("Montant du paiement incorrect")
                 return HttpResponseForbidden("Montant du paiement incorrect")
             payement.save()
             policy = Policy.objects.filter(uuid=payement.policy_uuid, validity_to__isnull=True).first()
@@ -284,6 +290,7 @@ def api_notify(request):
                         premium.pay_type="M"
                         premium.audit_user_id=2
                         premium.save()
+                        logger.warning("Paiement approuve et police activee")
                         PayementNotificationSender.send_payement_notifications(
                             insureeId=payement.openimis_ref,
                             amount=amount,
@@ -300,6 +307,7 @@ def api_notify(request):
                         payement.status="error"
                         payement.reason="Montant du paiement incorrect"
                         payement.save()
+                        logger.warning("Montant du paiement incorrect par rapport a la facture")
                         if mobile:
                             PayementNotificationSender.send_payement_notifications(
                                 insureeId=payement.openimis_ref,
@@ -325,6 +333,7 @@ def api_notify(request):
                         premium.pay_type="M"
                         premium.audit_user_id=2
                         premium.save()
+                        logger.warning("Paiement approuve et police activee")
                         PayementNotificationSender.send_payement_notifications(
                             insureeId=payement.openimis_ref,
                             amount=amount,
@@ -341,6 +350,7 @@ def api_notify(request):
                         payement.status="error"
                         payement.reason="Montant du paiement incorrect"
                         payement.save()
+                        logger.warning("Montant du paiement incorrect par rapport a la prime")
                         if mobile:
                             PayementNotificationSender.send_payement_notifications(
                                 insureeId=payement.openimis_ref,
@@ -353,8 +363,10 @@ def api_notify(request):
                                 phone=mobile
                             )
             else:
+                payement.status_return="NOK"
                 payement.status="error"
                 payement.reason="Aucune police d'assurance correspondante trouvee"
+                logger.warning("Aucune police d'assurance correspondante trouvee")
                 if mobile:
                     PayementNotificationSender.send_payement_notifications(
                         insureeId=payement.openimis_ref,
@@ -368,8 +380,10 @@ def api_notify(request):
                     )
                 return HttpResponseForbidden("pas de police d'assurance correspondante trouvee")
         else:
+            logger.warning(f"Payment not approved, status: {status}, error: {error}, reason: {reason}")
             payement=Payment.objects.filter(purchaseref=purchaseref).first()
             if not payement:
+                logger.warning("Référence d'achat inconnue")
                 return HttpResponseForbidden("Référence d'achat inconnue")
             payement.status="error"
             payement.status_return=status
@@ -385,6 +399,7 @@ def api_notify(request):
             payement.save()
             if mobile:
                 if payement.error and "CANCEL" in payement.error.upper():
+                    logger.warning("Paiement annulé par l'utilisateur")
                     PayementNotificationSender.send_payement_notifications(
                         insureeId=payement.openimis_ref,
                         amount=amount,
@@ -396,6 +411,7 @@ def api_notify(request):
                         phone=mobile
                     )
                 else :
+                    logger.warning("Paiement rejeté")
                     PayementNotificationSender.send_payement_notifications(
                         insureeId=payement.openimis_ref,
                         amount=amount,
@@ -407,6 +423,7 @@ def api_notify(request):
                         phone=mobile
                     )
     except Exception as e:
+        logger.warning(f"Erreur api_notify: {e}")
         logger.exception("Erreur api_notify")
         return HttpResponseBadRequest(f"Erreur serveur")
     return JsonResponse({"status": "OK"})
