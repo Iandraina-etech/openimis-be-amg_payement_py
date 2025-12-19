@@ -8,12 +8,12 @@ DEFAULT_CONFIG = {
     "HOLO_MERCHANT_ID": "2449462108576891",
     "HOLO_CURRENCY": 174,
     "HOLO_FORCE_MANUAL": False,
-    "CALLBACK_DOMAIN": "https://dev.amg.km",
-    "NOTIFY_URL": "https://dev.amg.km/amg-pay/holo/notificationpaiement",
-    "ACCEPT_URL": "https://dev.amg.km/amg-pay/holo/acceptpaiement",
-    "DECLINE_URL": "https://dev.amg.km/amg-pay/holo/declinepaiement",
-    "CANCEL_URL": "https://dev.amg.km/amg-pay/holo/cancelpaiement",
-    "IP_WHITELIST": ["3.6.76.175","54.38.250.251","5.135.34.227","176.31.43.71","135.125.248.117"],
+    "CALLBACK_DOMAIN": "https://test.amg.km",
+    "NOTIFY_URL": "https://test.amg.km/amg-pay/holo/notificationpaiement",
+    "ACCEPT_URL": "https://test.amg.km/amg-pay/holo/acceptpaiement",
+    "DECLINE_URL": "https://test.amg.km/amg-pay/holo/declinepaiement",
+    "CANCEL_URL": "https://test.amg.km/amg-pay/holo/cancelpaiement",
+    "IP_WHITELIST": ["54.38.250.251","5.135.34.227","176.31.43.71","135.125.248.117"],
     "SIGNING_SECRET": "change-me",
 }
 
