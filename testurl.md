@@ -9,4 +9,4 @@ localhost:3000/amg-pay/payments/initier-paiement?amount=10000&openimisRef=111111
 
 
 
-https://dev.amg.km/amg-pay/payments/initier-paiement?amount=4500&openimisRef=111111119501&policyUuid=914cdea3-c80a-4d34-bf6c-0ef1a8b34f61
+https://dev.amg.km/amg-pay/payments/initier-paiement?amount=15000&openimisRef=123456742590&policyUuid=0f02a712-2f24-4649-bb8e-7be186bd234c
