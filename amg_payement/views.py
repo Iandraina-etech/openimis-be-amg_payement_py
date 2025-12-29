@@ -293,7 +293,7 @@ def api_notify(request):
             if int(amount)!=int(payement.amount):
                 payement.status_return="NOK"
                 payement.status="error"
-                payement.reason="Montant du paiement incorrect"
+                payement.reason=f"Montant du paiement incorrect {amount} verse, {payement.amount} attendu "
                 payement.save()
                 logger.warning("Montant du paiement incorrect ver1")
                 if mobile:
