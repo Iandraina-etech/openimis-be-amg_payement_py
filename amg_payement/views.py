@@ -39,40 +39,12 @@ CANCEL_URL = cfg["CANCEL_URL"]
 
 @require_http_methods(["GET"])
 def initier_paiement(request):
-        
-    # POST: trigger initiation and render auto-submit form to HOLO
-    amount = request.GET.get("amount")
-    try :
-        amount=float(amount)
-        amount=int(amount)
-    except :
-        ctx = {
-            "erreur": "montant invalide",
-        }
-        return render(request, "payments/error.html", ctx) 
-    openimis_ref = request.GET.get("openimisRef")
-    if not openimis_ref or openimis_ref=="":
-        ctx = {
-            "erreur": "Référence numero d'assure invalide invalide",
-        }
-        return render(request, "payments/error.html", ctx)
-    description = f"Cotisation AMG pour {openimis_ref} montant {amount} "
+    openimis_ref=""
+    amount=0    
     policy_uuid = request.GET.get("policyUuid")
     if not policy_uuid or policy_uuid=="":
         ctx = {
             "erreur": "Référence de police invalide invalide",
-        }
-        return render(request, "payments/error.html", ctx)
-
-    if (amount == "" or int(amount) <= 0) or (openimis_ref == "" or not openimis_ref) or (policy_uuid == "" or not policy_uuid):
-            ctx = {
-                "erreur": "Paramètres invalides pour initier le paiement. Veuillez réessayer avec le bon lien.",
-            }
-            return render(request, "payments/error.html", ctx)
-    insuree=Insuree.objects.filter(chf_id=openimis_ref,validity_to__isnull=True).first()
-    if not insuree :
-        ctx = {
-            "erreur": "Assure a activer non trouvee",
         }
         return render(request, "payments/error.html", ctx)
     policy = Policy.objects.filter(uuid=policy_uuid, validity_to__isnull=True).first()
@@ -84,6 +56,7 @@ def initier_paiement(request):
     else:
         family = policy.family
         head_insuree = family.head_insuree
+        openimis_ref=head_insuree.chf_id
         invoice=None
         if head_insuree:
             insuree_content_type = ContentType.objects.get_for_model(Insuree)
@@ -94,20 +67,27 @@ def initier_paiement(request):
             }
             invoice = Invoice.objects.filter(**invoice_filter).first()
         if invoice:
-            if int(invoice.amount_total) != int(amount):
-                ctx = {
-                    "erreur": "Le montant fourni ne correspond pas au montant de la facture.",
-                }
-                return render(request, "payments/error.html", ctx)
+            amount=invoice.amount_total
         else:
-            if int(amount)!=int(policy_values(policy, policy.family, policy,None)[0].value):
-                ctx = {
-                    "erreur": "Le montant fourni ne correspond pas au montant de la prime.",
+            amount=policy_values(policy, policy.family, policy,None)[0].value
+
+    if not openimis_ref or openimis_ref=="":
+        ctx = {
+                    "erreur": "Pas d'assure chef de famille trouve ",
                 }
-                return render(request, "payments/error.html", ctx)      
-    
+        return render(request, "payments/error.html", ctx) 
+
+    if not amount or  amount==0:
+        ctx = {
+                    "erreur": "Erreur lors du chargement du montant payer ou le regime d'assurances est de type AMS et ne necessite pas de payement",
+                }
+        return render(request, "payments/error.html", ctx)
+            
     purchaseref = f"AMG-{openimis_ref}-{int(datetime.utcnow().timestamp())}"
 
+    description = f"Cotisation AMG pour {openimis_ref} montant {amount} "
+
+    
     payment = Payment.objects.create(
         purchaseref=purchaseref,
         openimis_ref=openimis_ref,
@@ -293,7 +273,7 @@ def api_notify(request):
             if int(amount)!=int(payement.amount):
                 payement.status_return="NOK"
                 payement.status="error"
-                payement.reason="Montant du paiement incorrect"
+                payement.reason=f"Montant du paiement incorrect {amount} verse, {payement.amount} attendu "
                 payement.save()
                 logger.warning("Montant du paiement incorrect ver1")
                 if mobile:
